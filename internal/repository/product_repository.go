@@ -15,14 +15,15 @@ type ProductRepository interface {
 	UpdateProduct(id int, product domain.Product) error
 	PatchProduct(id int, product domain.Product) error
 	DeleteProduct(id int) error
+	GetProductsByPriceGreaterThan(price float64) []domain.Product
 }
 
-type productRepository struct {
+type productRepositoryImpl struct {
 	products []domain.Product
 }
 
 func NewProductRepository(fileName string) (ProductRepository, error) {
-	repo := &productRepository{}
+	repo := &productRepositoryImpl{}
 	err := repo.loadProducts(fileName)
 	if err != nil {
 		return nil, err
@@ -30,7 +31,7 @@ func NewProductRepository(fileName string) (ProductRepository, error) {
 	return repo, nil
 }
 
-func (pr *productRepository) loadProducts(fileName string) error {
+func (pr *productRepositoryImpl) loadProducts(fileName string) error {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return err
@@ -46,25 +47,26 @@ func (pr *productRepository) loadProducts(fileName string) error {
 	return nil
 }
 
-func (pr *productRepository) getNextID() int {
+func (pr *productRepositoryImpl) getNextID() int {
 	maxID := 0
 	for _, product := range pr.products {
 		if product.ID > maxID {
 			maxID = product.ID
 		}
 	}
+
 	return maxID + 1
 }
 
 // CreateProduct implements ProductRepository.
-func (pr *productRepository) CreateProduct(p domain.Product) error {
+func (pr *productRepositoryImpl) CreateProduct(p domain.Product) error {
 	p.ID = pr.getNextID()
 	pr.products = append(pr.products, p)
 	return nil
 }
 
 // DeleteProduct implements ProductRepository.
-func (pr *productRepository) DeleteProduct(id int) error {
+func (pr *productRepositoryImpl) DeleteProduct(id int) error {
 	for i, product := range pr.products {
 		if product.ID == id {
 			pr.products = append(pr.products[:i], pr.products[i+1:]...)
@@ -75,7 +77,7 @@ func (pr *productRepository) DeleteProduct(id int) error {
 }
 
 // GetAllProducts implements ProductRepository.
-func (pr *productRepository) GetAllProducts() ([]domain.Product, error) {
+func (pr *productRepositoryImpl) GetAllProducts() ([]domain.Product, error) {
 	if pr.products == nil {
 		return nil, fmt.Errorf("no products found")
 	}
@@ -83,7 +85,7 @@ func (pr *productRepository) GetAllProducts() ([]domain.Product, error) {
 }
 
 // GetProductByID implements ProductRepository.
-func (pr *productRepository) GetProductByID(id int) (domain.Product, error) {
+func (pr *productRepositoryImpl) GetProductByID(id int) (domain.Product, error) {
 	for _, product := range pr.products {
 		if product.ID == id {
 			return product, nil
@@ -93,14 +95,14 @@ func (pr *productRepository) GetProductByID(id int) (domain.Product, error) {
 }
 
 // PatchProduct implements ProductRepository.
-func (pr *productRepository) PatchProduct(id int, product domain.Product) error {
+func (pr *productRepositoryImpl) PatchProduct(id int, product domain.Product) error {
 	for i, p := range pr.products {
 		if p.ID == id {
 
 			if product.Name != "" {
 				pr.products[i].Name = product.Name
 			}
-			if product.Quantity >= 0 {
+			if product.Quantity > 0 {
 				pr.products[i].Quantity = product.Quantity
 			}
 			if product.CodeValue != "" {
@@ -112,7 +114,7 @@ func (pr *productRepository) PatchProduct(id int, product domain.Product) error 
 			if product.Expiration != "" {
 				pr.products[i].Expiration = product.Expiration
 			}
-			if product.Price >= 0 {
+			if product.Price > 0 {
 				pr.products[i].Price = product.Price
 			}
 			return nil
@@ -122,7 +124,7 @@ func (pr *productRepository) PatchProduct(id int, product domain.Product) error 
 }
 
 // UpdateProduct implements ProductRepository.
-func (pr *productRepository) UpdateProduct(id int, product domain.Product) error {
+func (pr *productRepositoryImpl) UpdateProduct(id int, product domain.Product) error {
 	for i, p := range pr.products {
 		if p.ID == id {
 			product.ID = id
@@ -131,4 +133,14 @@ func (pr *productRepository) UpdateProduct(id int, product domain.Product) error
 		}
 	}
 	return fmt.Errorf("product not found")
+}
+
+// GetProductsByPriceGreaterThan implements ProductRepository.
+func (pr *productRepositoryImpl) GetProductsByPriceGreaterThan(price float64) (filteredProducts []domain.Product) {
+	for _, product := range pr.products {
+		if product.Price >= price {
+			filteredProducts = append(filteredProducts, product)
+		}
+	}
+	return filteredProducts
 }
